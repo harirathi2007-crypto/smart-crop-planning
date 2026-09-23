@@ -81,6 +81,26 @@ app.put("/api/crops/:id", async (req, res) => {
     }
 });
 
+app.delete("/api/crops/:id", async (req, res) => {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+        return res.status(400).json({ message: "Invalid crop id" });
+    }
+
+    try {
+        const crop = await Crop.findByIdAndDelete(id);
+
+        if (!crop) {
+            return res.status(404).json({ message: "Crop not found" });
+        }
+
+        res.status(204).send();
+    } catch (error) {
+        res.status(500).json({ message: "Unable to delete crop" });
+    }
+});
+
 async function startServer() {
     await mongoose.connect(MONGODB_URI);
 

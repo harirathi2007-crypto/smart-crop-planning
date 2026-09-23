@@ -25,3 +25,4 @@ Crop database operations:
 - `POST /api/crops` writes a crop to MongoDB. Send JSON with a required `name`
 	and optional `season`, `soilType`, and `description` fields.
 - `PUT /api/crops/:id` updates an existing crop using the same JSON fields.
+- `DELETE /api/crops/:id` removes an existing crop from MongoDB.
