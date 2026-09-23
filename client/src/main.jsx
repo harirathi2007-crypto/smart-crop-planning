@@ -5,6 +5,20 @@ import "./styles.css";
 const API_URL = "http://localhost:3000/api/crops";
 const AUTH_URL = "http://localhost:3000/api/auth";
 
+function getInitialSession() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token");
+
+  if (token) {
+    const session = { token };
+    localStorage.setItem("cropSession", JSON.stringify(session));
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return session;
+  }
+
+  return JSON.parse(localStorage.getItem("cropSession") || "null");
+}
+
 function AuthPanel({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
@@ -52,6 +66,7 @@ function AuthPanel({ onAuthenticated }) {
           <input aria-label="Password" type="password" placeholder="Password (6+ characters)" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} minLength="6" required />
           <button className="auth-submit" type="submit">{mode === "login" ? "Sign in" : "Create account"}</button>
         </form>
+        {mode === "login" && <a className="google-submit" href={`${AUTH_URL}/google`}>Continue with Google</a>}
         {status.message && <p className={`status ${status.type}`} role="status">{status.message}</p>}
       </section>
     </main>
@@ -59,7 +74,7 @@ function AuthPanel({ onAuthenticated }) {
 }
 
 function App() {
-  const [session, setSession] = useState(() => JSON.parse(localStorage.getItem("cropSession") || "null"));
+  const [session, setSession] = useState(getInitialSession);
   const [crops, setCrops] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ name: "", season: "", soilType: "", description: "" });
