@@ -26,3 +26,5 @@ Crop database operations:
 	and optional `season`, `soilType`, and `description` fields.
 - `PUT /api/crops/:id` updates an existing crop using the same JSON fields.
 - `DELETE /api/crops/:id` removes an existing crop from MongoDB.
+- `POST /api/recommendations` links a user and their farm to a crop recommendation.
+- `GET /api/recommendations` reads recommendations with populated user and farm data.

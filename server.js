@@ -2,6 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const Crop = require("./models/Crop");
+const User = require("./models/User");
+const Farm = require("./models/Farm");
+const CropRecommendation = require("./models/CropRecommendation");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -98,6 +101,73 @@ app.delete("/api/crops/:id", async (req, res) => {
         res.status(204).send();
     } catch (error) {
         res.status(500).json({ message: "Unable to delete crop" });
+    }
+});
+
+app.get("/api/recommendations", async (req, res) => {
+    try {
+        const recommendations = await CropRecommendation.find()
+            .populate("user", "name email phone")
+            .populate("farm", "location soilType area");
+
+        res.json(recommendations);
+    } catch (error) {
+        res.status(500).json({ message: "Unable to read recommendations" });
+    }
+});
+
+app.post("/api/recommendations", async (req, res) => {
+    const {
+        user,
+        farm,
+        recommendedCrop,
+        suitability,
+        temperature,
+        rainfall,
+        humidity
+    } = req.body;
+
+    if (
+        !mongoose.isValidObjectId(user) ||
+        !mongoose.isValidObjectId(farm) ||
+        typeof recommendedCrop !== "string" ||
+        recommendedCrop.trim() === ""
+    ) {
+        return res.status(400).json({
+            message: "User, farm, and recommended crop are required"
+        });
+    }
+
+    try {
+        const [existingUser, ownedFarm] = await Promise.all([
+            User.findById(user),
+            Farm.findOne({ _id: farm, user })
+        ]);
+
+        if (!existingUser || !ownedFarm) {
+            return res.status(404).json({
+                message: "User or farm relationship not found"
+            });
+        }
+
+        const recommendation = await CropRecommendation.create({
+            user,
+            farm,
+            recommendedCrop: recommendedCrop.trim(),
+            suitability,
+            temperature,
+            rainfall,
+            humidity
+        });
+
+        await recommendation.populate([
+            { path: "user", select: "name email phone" },
+            { path: "farm", select: "location soilType area" }
+        ]);
+
+        res.status(201).json(recommendation);
+    } catch (error) {
+        res.status(500).json({ message: "Unable to create recommendation" });
     }
 });
 
