@@ -36,4 +36,15 @@ h2 { font-size: 32px; letter-spacing: -.04em; margin: 0; }
 .edit-fields { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
 .edit-fields input { background: #f8faf5; border: 1px solid #bbc5ba; color: #172019; min-width: 0; padding: 11px 12px; }
 .empty { border: 1px dashed #aeb9ad; color: #718075; padding: 32px; text-align: center; }
+.auth-shell { align-items: center; background: #dfe7d9; display: flex; min-height: 100vh; justify-content: center; padding: 28px; }
+.auth-panel { background: #f8faf5; max-width: 530px; padding: 58px; width: 100%; }
+.auth-panel h1 { font-size: clamp(3.2rem, 9vw, 6rem); margin-bottom: 22px; }
+.auth-tabs { border-bottom: 1px solid #cbd2c7; display: flex; gap: 24px; margin: 36px 0 18px; }
+.auth-tabs button { background: transparent; border: 0; border-bottom: 2px solid transparent; color: #718075; cursor: pointer; padding: 12px 0; }
+.auth-tabs button.active { border-color: #bd4d2d; color: #172019; }
+.auth-form { display: grid; gap: 12px; }
+.auth-form input { background: white; border: 1px solid #bbc5ba; color: #172019; padding: 14px; }
+.auth-submit { background: #172019; border: 0; color: white; cursor: pointer; margin-top: 6px; padding: 14px; }
+.sign-out { align-self: end; background: transparent; border: 0; border-bottom: 1px solid #bd4d2d; color: #bd4d2d; cursor: pointer; margin-left: auto; padding: 4px 0; }
 @media (max-width: 760px) { .shell { padding: 32px 20px 64px; } .hero { display: block; padding-bottom: 34px; } .intro { margin-top: 28px; } .crop-row { align-items: start; grid-template-columns: 40px 1fr auto; } .crop-mark { height: 40px; width: 40px; } .crop-meta { grid-column: 2 / 3; } .crop-row > .actions { grid-column: 3 / 4; grid-row: 1 / span 2; flex-direction: column; gap: 2px; } .editing { display: block; } .edit-fields { grid-template-columns: 1fr; } .editing .actions { flex-direction: row; justify-content: flex-start; margin-top: 14px; } }
+@media (max-width: 520px) { .auth-panel { padding: 34px 24px; } .toolbar { flex-wrap: wrap; gap: 28px; } .sign-out { margin-left: 0; } }

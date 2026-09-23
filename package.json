@@ -20,8 +20,10 @@
   },
   "homepage": "https://github.com/harirathi2007-crypto/smart-crop-planning#readme",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.10.2"
   }
 }
