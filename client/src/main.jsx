@@ -3,8 +3,63 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 const API_URL = "http://localhost:3000/api/crops";
+const AUTH_URL = "http://localhost:3000/api/auth";
+
+function AuthPanel({ onAuthenticated }) {
+  const [mode, setMode] = useState("login");
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [status, setStatus] = useState({ type: "", message: "" });
+
+  async function submit(event) {
+    event.preventDefault();
+    setStatus({ type: "", message: "Checking credentials..." });
+
+    try {
+      const response = await fetch(`${AUTH_URL}/${mode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form)
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Authentication failed");
+
+      if (mode === "register") {
+        setMode("login");
+        setStatus({ type: "success", message: "Account created. Sign in to continue." });
+        return;
+      }
+
+      localStorage.setItem("cropSession", JSON.stringify(result));
+      onAuthenticated(result);
+    } catch (error) {
+      setStatus({ type: "error", message: error.message });
+    }
+  }
+
+  return (
+    <main className="auth-shell">
+      <section className="auth-panel">
+        <p className="eyebrow">FIELD REGISTER / PRIVATE ACCESS</p>
+        <h1>Plan with<br /><em>confidence.</em></h1>
+        <p className="intro">Sign in to manage the crop records for your farm.</p>
+        <div className="auth-tabs">
+          <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")} type="button">Sign in</button>
+          <button className={mode === "register" ? "active" : ""} onClick={() => setMode("register")} type="button">Create account</button>
+        </div>
+        <form className="auth-form" onSubmit={submit}>
+          {mode === "register" && <input aria-label="Name" placeholder="Full name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />}
+          <input aria-label="Email" type="email" placeholder="Email address" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required />
+          <input aria-label="Password" type="password" placeholder="Password (6+ characters)" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} minLength="6" required />
+          <button className="auth-submit" type="submit">{mode === "login" ? "Sign in" : "Create account"}</button>
+        </form>
+        {status.message && <p className={`status ${status.type}`} role="status">{status.message}</p>}
+      </section>
+    </main>
+  );
+}
 
 function App() {
+  const [session, setSession] = useState(() => JSON.parse(localStorage.getItem("cropSession") || "null"));
   const [crops, setCrops] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ name: "", season: "", soilType: "", description: "" });
@@ -24,8 +79,12 @@ function App() {
   }
 
   useEffect(() => {
-    loadCrops();
-  }, []);
+    if (session) loadCrops();
+  }, [session]);
+
+  if (!session) {
+    return <AuthPanel onAuthenticated={setSession} />;
+  }
 
   function startEditing(crop) {
     setEditingId(crop._id);
@@ -91,6 +150,7 @@ function App() {
       <section className="toolbar" aria-label="Crop register summary">
         <div><span className="label">ACTIVE RECORDS</span><strong>{crops.length}</strong></div>
         <div><span className="label">DATABASE</span><strong className="online">Connected</strong></div>
+        <button className="sign-out" onClick={() => { localStorage.removeItem("cropSession"); setSession(null); }} type="button">Sign out</button>
       </section>
 
       {status.message && <p className={`status ${status.type}`} role="status">{status.message}</p>}

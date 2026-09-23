@@ -16,8 +16,16 @@ the server, or use the local default at
 
 ```powershell
 $env:MONGODB_URI = "mongodb+srv://<username>:<password>@<cluster>/<database>"
+$env:JWT_SECRET = "replace-with-a-long-random-secret"
 npm start
 ```
+
+Authentication endpoints:
+
+- `POST /api/auth/register` creates a user with a hashed password.
+- `POST /api/auth/login` returns a one-day bearer token.
+- `GET /api/auth/me` returns the authenticated user when sent an
+	`Authorization: Bearer <token>` header.
 
 Crop database operations:
 
