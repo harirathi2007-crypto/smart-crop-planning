@@ -40,6 +40,10 @@ if (googleOAuthConfigured) {
 }
 
 app.get("/", (req, res) => {
+    res.redirect(CLIENT_URL);
+});
+
+app.get("/api/health", (req, res) => {
     res.json({
         message: "Smart Crop Planning System API is running"
     });
