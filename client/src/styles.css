@@ -45,6 +45,7 @@ h2 { font-size: 32px; letter-spacing: -.04em; margin: 0; }
 .auth-form { display: grid; gap: 12px; }
 .auth-form input { background: white; border: 1px solid #bbc5ba; color: #172019; padding: 14px; }
 .auth-submit { background: #172019; border: 0; color: white; cursor: pointer; margin-top: 6px; padding: 14px; }
+.google-submit { border: 1px solid #bbc5ba; color: #172019; display: block; margin-top: 10px; padding: 13px; text-align: center; text-decoration: none; }
 .sign-out { align-self: end; background: transparent; border: 0; border-bottom: 1px solid #bd4d2d; color: #bd4d2d; cursor: pointer; margin-left: auto; padding: 4px 0; }
 @media (max-width: 760px) { .shell { padding: 32px 20px 64px; } .hero { display: block; padding-bottom: 34px; } .intro { margin-top: 28px; } .crop-row { align-items: start; grid-template-columns: 40px 1fr auto; } .crop-mark { height: 40px; width: 40px; } .crop-meta { grid-column: 2 / 3; } .crop-row > .actions { grid-column: 3 / 4; grid-row: 1 / span 2; flex-direction: column; gap: 2px; } .editing { display: block; } .edit-fields { grid-template-columns: 1fr; } .editing .actions { flex-direction: row; justify-content: flex-start; margin-top: 14px; } }
 @media (max-width: 520px) { .auth-panel { padding: 34px 24px; } .toolbar { flex-wrap: wrap; gap: 28px; } .sign-out { margin-left: 0; } }

@@ -3,6 +3,8 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const passport = require("passport");
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const Crop = require("./models/Crop");
 const User = require("./models/User");
 const Farm = require("./models/Farm");
@@ -13,9 +15,29 @@ const PORT = process.env.PORT || 3000;
 const MONGODB_URI =
     process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/smart-crop-planning";
 const JWT_SECRET = process.env.JWT_SECRET || "smart-crop-planning-development-secret";
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const googleOAuthConfigured = Boolean(
+    process.env.GOOGLE_CLIENT_ID &&
+        process.env.GOOGLE_CLIENT_SECRET &&
+        process.env.GOOGLE_CALLBACK_URL
+);
 
 app.use(cors());
 app.use(express.json());
+app.use(passport.initialize());
+
+if (googleOAuthConfigured) {
+    passport.use(
+        new GoogleStrategy(
+            {
+                clientID: process.env.GOOGLE_CLIENT_ID,
+                clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+                callbackURL: process.env.GOOGLE_CALLBACK_URL
+            },
+            (accessToken, refreshToken, profile, done) => done(null, profile)
+        )
+    );
+}
 
 app.get("/", (req, res) => {
     res.json({
@@ -128,6 +150,70 @@ app.get("/api/auth/me", requireAuth, async (req, res) => {
         res.status(500).json({ message: "Unable to load user" });
     }
 });
+
+app.get("/api/auth/google", (req, res, next) => {
+    if (!googleOAuthConfigured) {
+        return res.status(503).json({
+            message: "Google authentication is not configured"
+        });
+    }
+
+    passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
+});
+
+app.get(
+    "/api/auth/google/callback",
+    (req, res, next) => {
+        if (!googleOAuthConfigured) {
+            return res.status(503).json({
+                message: "Google authentication is not configured"
+            });
+        }
+
+        passport.authenticate("google", { session: false }, (error, profile) => {
+            if (error || !profile) {
+                return res.redirect(`${CLIENT_URL}/?authError=google`);
+            }
+
+            req.googleProfile = profile;
+            next();
+        })(req, res, next);
+    },
+    async (req, res) => {
+        try {
+            const googleEmail = profileEmail(req.googleProfile);
+            let user = await User.findOne({ googleId: req.googleProfile.id });
+
+            if (!user && googleEmail) {
+                user = await User.findOne({ email: googleEmail });
+            }
+
+            if (!user) {
+                user = await User.create({
+                    name: req.googleProfile.displayName || "Google user",
+                    email: googleEmail || `${req.googleProfile.id}@google.local`,
+                    googleId: req.googleProfile.id,
+                    authProvider: "google"
+                });
+            } else if (!user.googleId) {
+                user.googleId = req.googleProfile.id;
+                user.authProvider = "google";
+                await user.save();
+            }
+
+            const token = jwt.sign({ userId: user._id.toString() }, JWT_SECRET, {
+                expiresIn: "1d"
+            });
+            res.redirect(`${CLIENT_URL}/?token=${encodeURIComponent(token)}`);
+        } catch (error) {
+            res.redirect(`${CLIENT_URL}/?authError=google`);
+        }
+    }
+);
+
+function profileEmail(profile) {
+    return profile.emails?.[0]?.value?.trim().toLowerCase();
+}
 
 app.get("/api/crops", async (req, res) => {
     try {

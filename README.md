@@ -17,6 +17,10 @@ the server, or use the local default at
 ```powershell
 $env:MONGODB_URI = "mongodb+srv://<username>:<password>@<cluster>/<database>"
 $env:JWT_SECRET = "replace-with-a-long-random-secret"
+$env:GOOGLE_CLIENT_ID = "your-google-client-id"
+$env:GOOGLE_CLIENT_SECRET = "your-google-client-secret"
+$env:GOOGLE_CALLBACK_URL = "http://localhost:3000/api/auth/google/callback"
+$env:CLIENT_URL = "http://localhost:5173"
 npm start
 ```
 
@@ -26,6 +30,11 @@ Authentication endpoints:
 - `POST /api/auth/login` returns a one-day bearer token.
 - `GET /api/auth/me` returns the authenticated user when sent an
 	`Authorization: Bearer <token>` header.
+- `GET /api/auth/google` starts Google OAuth and redirects back with the app JWT.
+
+Create a Google OAuth web application in Google Cloud Console and add the
+callback URL above to its authorized redirect URIs before using the Google
+button in the client.
 
 Crop database operations:
 
