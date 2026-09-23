@@ -47,6 +47,40 @@ app.post("/api/crops", async (req, res) => {
     }
 });
 
+app.put("/api/crops/:id", async (req, res) => {
+    const { id } = req.params;
+    const { name, season, soilType, description } = req.body;
+
+    if (!mongoose.isValidObjectId(id)) {
+        return res.status(400).json({ message: "Invalid crop id" });
+    }
+
+    if (typeof name !== "string" || name.trim() === "") {
+        return res.status(400).json({ message: "Crop name is required" });
+    }
+
+    try {
+        const crop = await Crop.findByIdAndUpdate(
+            id,
+            {
+                name: name.trim(),
+                season,
+                soilType,
+                description
+            },
+            { returnDocument: "after", runValidators: true }
+        );
+
+        if (!crop) {
+            return res.status(404).json({ message: "Crop not found" });
+        }
+
+        res.json(crop);
+    } catch (error) {
+        res.status(500).json({ message: "Unable to update crop" });
+    }
+});
+
 async function startServer() {
     await mongoose.connect(MONGODB_URI);
 

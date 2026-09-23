@@ -24,3 +24,4 @@ Crop database operations:
 - `GET /api/crops` reads all crops from MongoDB.
 - `POST /api/crops` writes a crop to MongoDB. Send JSON with a required `name`
 	and optional `season`, `soilType`, and `description` fields.
+- `PUT /api/crops/:id` updates an existing crop using the same JSON fields.
