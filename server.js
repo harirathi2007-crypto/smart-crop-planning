@@ -27,20 +27,22 @@ app.get("/api/crops", async (req, res) => {
 });
 
 app.post("/api/crops", async (req, res) => {
+    const { name, season, soilType, description } = req.body;
+
+    if (typeof name !== "string" || name.trim() === "") {
+        return res.status(400).json({ message: "Crop name is required" });
+    }
+
     try {
         const crop = await Crop.create({
-            name: req.body.name,
-            season: req.body.season,
-            soilType: req.body.soilType,
-            description: req.body.description
+            name: name.trim(),
+            season,
+            soilType,
+            description
         });
 
         res.status(201).json(crop);
     } catch (error) {
-        if (error.name === "ValidationError") {
-            return res.status(400).json({ message: "Crop name is required" });
-        }
-
         res.status(500).json({ message: "Unable to create crop" });
     }
 });
