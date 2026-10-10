@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 const API_URL = "http://localhost:3000/api/crops";
+const API_ORIGIN = new URL(API_URL).origin;
 const AUTH_URL = "http://localhost:3000/api/auth";
 
 function getInitialSession() {
@@ -86,11 +87,48 @@ function AuthPanel({ onAuthenticated }) {
   );
 }
 
+function CropPhoto({ crop, token }) {
+  const [source, setSource] = useState("");
+
+  useEffect(() => {
+    let objectUrl;
+    const controller = new AbortController();
+
+    setSource("");
+    fetch(`${API_ORIGIN}${crop.imageUrl}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error("Unable to load crop image");
+        return response.blob();
+      })
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
+        setSource(objectUrl);
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") setSource("");
+      });
+
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [crop.imageUrl, token]);
+
+  return source
+    ? <img className="crop-photo" src={source} alt={`${crop.name} crop`} loading="lazy" />
+    : <div className="crop-mark" aria-label={`${crop.name} image loading`}>{crop.name.slice(0, 1).toUpperCase()}</div>;
+}
+
 function App() {
   const [session, setSession] = useState(getInitialSession);
   const [crops, setCrops] = useState([]);
   const [editingId, setEditingId] = useState(null);
+  const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", season: "", soilType: "", description: "" });
+  const [image, setImage] = useState(null);
   const [status, setStatus] = useState({ type: "", message: "" });
   const [loading, setLoading] = useState(true);
 
@@ -118,6 +156,8 @@ function App() {
 
   function startEditing(crop) {
     setEditingId(crop._id);
+    setCreating(false);
+    setImage(null);
     setForm({
       name: crop.name,
       season: crop.season || "",
@@ -127,8 +167,18 @@ function App() {
     setStatus({ type: "", message: "" });
   }
 
+  function startCreating() {
+    setEditingId(null);
+    setCreating(true);
+    setImage(null);
+    setForm({ name: "", season: "", soilType: "", description: "" });
+    setStatus({ type: "", message: "" });
+  }
+
   function cancelEditing() {
     setEditingId(null);
+    setCreating(false);
+    setImage(null);
     setForm({ name: "", season: "", soilType: "", description: "" });
   }
 
@@ -137,19 +187,28 @@ function App() {
     setStatus({ type: "", message: "Saving changes..." });
 
     try {
-      const response = await fetch(`${API_URL}/${editingId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.token}`
-        },
-        body: JSON.stringify(form)
+      const payload = new FormData();
+      Object.entries(form).forEach(([key, value]) => payload.append(key, value));
+      if (image) payload.append("image", image);
+
+      const response = await fetch(editingId ? `${API_URL}/${editingId}` : API_URL, {
+        method: editingId ? "PUT" : "POST",
+        headers: { Authorization: `Bearer ${session.token}` },
+        body: payload
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.message || "Unable to update crop");
+      if (!response.ok) throw new Error(result.message || "Unable to save crop");
 
-      setCrops((current) => current.map((crop) => (crop._id === result._id ? result : crop)));
-      setStatus({ type: "success", message: "Crop updated successfully." });
+      setCrops((current) => {
+        const updated = editingId
+          ? current.map((crop) => (crop._id === result._id ? result : crop))
+          : [...current, result];
+        return updated.sort((left, right) => left.name.localeCompare(right.name));
+      });
+      setStatus({
+        type: "success",
+        message: editingId ? "Crop updated successfully." : "Crop added successfully."
+      });
       cancelEditing();
     } catch (error) {
       setStatus({ type: "error", message: error.message });
@@ -194,24 +253,33 @@ function App() {
       <section className="register">
         <div className="register-heading">
           <div><p className="eyebrow">YOUR LIBRARY</p><h2>Crop register</h2></div>
-          <button className="refresh" onClick={loadCrops} type="button">Refresh list</button>
+          <div className="register-actions">
+            <button className="add-crop" onClick={startCreating} type="button">Add crop</button>
+            <button className="refresh" onClick={loadCrops} type="button">Refresh list</button>
+          </div>
         </div>
 
-        {loading ? <p className="empty">Loading your crops...</p> : crops.length === 0 ? <p className="empty">No crop records yet.</p> : (
+        {loading ? <p className="empty">Loading your crops...</p> : crops.length === 0 && !creating ? <p className="empty">No crop records yet.</p> : (
           <div className="crop-list">
-            {crops.map((crop) => editingId === crop._id ? (
-              <form className="crop-row editing" key={crop._id} onSubmit={saveCrop}>
+            {(creating || editingId) && (
+              <form className="crop-row editing crop-form" onSubmit={saveCrop}>
                 <div className="edit-fields">
-                  <input aria-label="Crop name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />
+                  <input aria-label="Crop name" placeholder="Crop name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />
                   <input aria-label="Season" placeholder="Season" value={form.season} onChange={(event) => setForm({ ...form, season: event.target.value })} />
                   <input aria-label="Soil type" placeholder="Soil type" value={form.soilType} onChange={(event) => setForm({ ...form, soilType: event.target.value })} />
                   <input aria-label="Description" placeholder="Description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
+                  <label className="upload-field">Crop image (JPEG, PNG, or WebP; max 5 MB)
+                    <input aria-label="Crop image" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setImage(event.target.files?.[0] || null)} />
+                  </label>
                 </div>
-                <div className="actions"><button className="save" type="submit">Save</button><button className="cancel" onClick={cancelEditing} type="button">Cancel</button></div>
+                <div className="actions"><button className="save" type="submit">{creating ? "Add crop" : "Save"}</button><button className="cancel" onClick={cancelEditing} type="button">Cancel</button></div>
               </form>
-            ) : (
+            )}
+            {crops.map((crop) => (
               <article className="crop-row" key={crop._id}>
-                <div className="crop-mark">{crop.name.slice(0, 1).toUpperCase()}</div>
+                {crop.imageUrl
+                  ? <CropPhoto crop={crop} token={session.token} />
+                  : <div className="crop-mark">{crop.name.slice(0, 1).toUpperCase()}</div>}
                 <div className="crop-main"><h3>{crop.name}</h3><p>{crop.description || "No description added"}</p></div>
                 <div className="crop-meta"><span>{crop.season || "Season pending"}</span><span>{crop.soilType || "Soil pending"}</span></div>
                 <div className="actions"><button className="edit" onClick={() => startEditing(crop)} type="button">Edit</button><button className="delete" onClick={() => deleteCrop(crop._id)} type="button">Delete</button></div>

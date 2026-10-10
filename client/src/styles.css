@@ -17,6 +17,8 @@ h1 em { color: #bd4d2d; font-style: normal; }
 .online::before { background: #4f8b61; border-radius: 50%; content: ''; display: inline-block; height: 7px; margin: 0 8px 2px 0; width: 7px; }
 .register { padding-top: 52px; }
 .register-heading { align-items: end; display: flex; justify-content: space-between; margin-bottom: 22px; }
+.register-actions { align-items: center; display: flex; gap: 18px; }
+.add-crop { background: #172019; border: 0; color: white; cursor: pointer; padding: 10px 14px; }
 h2 { font-size: 32px; letter-spacing: -.04em; margin: 0; }
 .refresh, .edit, .delete, .save, .cancel { border: 0; cursor: pointer; }
 .refresh { background: transparent; border-bottom: 1px solid #172019; color: #172019; padding: 4px 0; }
@@ -26,6 +28,7 @@ h2 { font-size: 32px; letter-spacing: -.04em; margin: 0; }
 .crop-list { border-top: 1px solid #aeb9ad; }
 .crop-row { align-items: center; border-bottom: 1px solid #cbd2c7; display: grid; gap: 20px; grid-template-columns: 46px minmax(180px, 1fr) 190px 140px; min-height: 105px; padding: 18px 0; }
 .crop-mark { align-items: center; background: #d8e2d1; border-radius: 50%; color: #467052; display: flex; font-size: 20px; height: 46px; justify-content: center; width: 46px; }
+.crop-photo { aspect-ratio: 1; border-radius: 2px; height: 52px; object-fit: cover; width: 52px; }
 .crop-main h3 { font-size: 18px; margin-bottom: 6px; }
 .crop-main p { color: #718075; font-size: 13px; margin: 0; }
 .crop-meta { color: #566259; display: flex; flex-direction: column; font: 12px 'DM Mono', monospace; gap: 8px; }
@@ -35,6 +38,8 @@ h2 { font-size: 32px; letter-spacing: -.04em; margin: 0; }
 .editing { align-items: start; grid-template-columns: 1fr 140px; padding: 22px 0; }
 .edit-fields { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
 .edit-fields input { background: #f8faf5; border: 1px solid #bbc5ba; color: #172019; min-width: 0; padding: 11px 12px; }
+.upload-field { color: #566259; display: grid; font-size: 12px; gap: 8px; grid-column: 1 / -1; }
+.upload-field input { background: #f8faf5; border: 1px solid #bbc5ba; color: #172019; min-width: 0; padding: 10px; }
 .empty { border: 1px dashed #aeb9ad; color: #718075; padding: 32px; text-align: center; }
 .auth-shell { align-items: center; background: #dfe7d9; display: flex; min-height: 100vh; justify-content: center; padding: 28px; }
 .auth-panel { background: #f8faf5; max-width: 530px; padding: 58px; width: 100%; }
@@ -47,5 +52,5 @@ h2 { font-size: 32px; letter-spacing: -.04em; margin: 0; }
 .auth-submit { background: #172019; border: 0; color: white; cursor: pointer; margin-top: 6px; padding: 14px; }
 .google-submit { border: 1px solid #bbc5ba; color: #172019; display: block; margin-top: 10px; padding: 13px; text-align: center; text-decoration: none; }
 .sign-out { align-self: end; background: transparent; border: 0; border-bottom: 1px solid #bd4d2d; color: #bd4d2d; cursor: pointer; margin-left: auto; padding: 4px 0; }
-@media (max-width: 760px) { .shell { padding: 32px 20px 64px; } .hero { display: block; padding-bottom: 34px; } .intro { margin-top: 28px; } .crop-row { align-items: start; grid-template-columns: 40px 1fr auto; } .crop-mark { height: 40px; width: 40px; } .crop-meta { grid-column: 2 / 3; } .crop-row > .actions { grid-column: 3 / 4; grid-row: 1 / span 2; flex-direction: column; gap: 2px; } .editing { display: block; } .edit-fields { grid-template-columns: 1fr; } .editing .actions { flex-direction: row; justify-content: flex-start; margin-top: 14px; } }
-@media (max-width: 520px) { .auth-panel { padding: 34px 24px; } .toolbar { flex-wrap: wrap; gap: 28px; } .sign-out { margin-left: 0; } }
+@media (max-width: 760px) { .shell { padding: 32px 20px 64px; } .hero { display: block; padding-bottom: 34px; } .intro { margin-top: 28px; } .crop-row { align-items: start; grid-template-columns: 40px 1fr auto; } .crop-mark, .crop-photo { height: 40px; width: 40px; } .crop-meta { grid-column: 2 / 3; } .crop-row > .actions { grid-column: 3 / 4; grid-row: 1 / span 2; flex-direction: column; gap: 2px; } .editing { display: block; } .edit-fields { grid-template-columns: 1fr; } .editing .actions { flex-direction: row; justify-content: flex-start; margin-top: 14px; } }
+@media (max-width: 520px) { .auth-panel { padding: 34px 24px; } .toolbar { flex-wrap: wrap; gap: 28px; } .sign-out { margin-left: 0; } .register-heading { align-items: stretch; flex-direction: column; gap: 18px; } .register-actions { justify-content: space-between; } }
