@@ -22,7 +22,20 @@ function getInitialSession() {
 function AuthPanel({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
-  const [status, setStatus] = useState({ type: "", message: "" });
+  const [status, setStatus] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get("authError");
+
+    if (!authError) return { type: "", message: "" };
+
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return {
+      type: "error",
+      message: authError === "google_unconfigured"
+        ? "Google sign-in is not configured. Use email and password or contact the administrator."
+        : "Google sign-in could not be completed. Please try again."
+    };
+  });
 
   async function submit(event) {
     event.preventDefault();
@@ -83,7 +96,9 @@ function App() {
 
   async function loadCrops() {
     try {
-      const response = await fetch(API_URL);
+      const response = await fetch(API_URL, {
+        headers: { Authorization: `Bearer ${session.token}` }
+      });
       if (!response.ok) throw new Error("Unable to load crops");
       setCrops(await response.json());
     } catch (error) {
@@ -124,7 +139,10 @@ function App() {
     try {
       const response = await fetch(`${API_URL}/${editingId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.token}`
+        },
         body: JSON.stringify(form)
       });
       const result = await response.json();
@@ -143,7 +161,10 @@ function App() {
     setStatus({ type: "", message: "Deleting crop..." });
 
     try {
-      const response = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      const response = await fetch(`${API_URL}/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.token}` }
+      });
       const result = response.status === 204 ? null : await response.json();
       if (!response.ok) throw new Error(result?.message || "Unable to delete crop");
 

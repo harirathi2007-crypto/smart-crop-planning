@@ -157,9 +157,7 @@ app.get("/api/auth/me", requireAuth, async (req, res) => {
 
 app.get("/api/auth/google", (req, res, next) => {
     if (!googleOAuthConfigured) {
-        return res.status(503).json({
-            message: "Google authentication is not configured"
-        });
+        return res.redirect(`${CLIENT_URL}/?authError=google_unconfigured`);
     }
 
     passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
@@ -169,9 +167,7 @@ app.get(
     "/api/auth/google/callback",
     (req, res, next) => {
         if (!googleOAuthConfigured) {
-            return res.status(503).json({
-                message: "Google authentication is not configured"
-            });
+            return res.redirect(`${CLIENT_URL}/?authError=google_unconfigured`);
         }
 
         passport.authenticate("google", { session: false }, (error, profile) => {
@@ -219,7 +215,7 @@ function profileEmail(profile) {
     return profile.emails?.[0]?.value?.trim().toLowerCase();
 }
 
-app.get("/api/crops", async (req, res) => {
+app.get("/api/crops", requireAuth, async (req, res) => {
     try {
         const crops = await Crop.find().sort({ name: 1 });
         res.json(crops);
@@ -228,7 +224,7 @@ app.get("/api/crops", async (req, res) => {
     }
 });
 
-app.post("/api/crops", async (req, res) => {
+app.post("/api/crops", requireAuth, async (req, res) => {
     const { name, season, soilType, description } = req.body;
 
     if (typeof name !== "string" || name.trim() === "") {
@@ -249,7 +245,7 @@ app.post("/api/crops", async (req, res) => {
     }
 });
 
-app.put("/api/crops/:id", async (req, res) => {
+app.put("/api/crops/:id", requireAuth, async (req, res) => {
     const { id } = req.params;
     const { name, season, soilType, description } = req.body;
 
@@ -283,7 +279,7 @@ app.put("/api/crops/:id", async (req, res) => {
     }
 });
 
-app.delete("/api/crops/:id", async (req, res) => {
+app.delete("/api/crops/:id", requireAuth, async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.isValidObjectId(id)) {
@@ -303,7 +299,7 @@ app.delete("/api/crops/:id", async (req, res) => {
     }
 });
 
-app.get("/api/recommendations", async (req, res) => {
+app.get("/api/recommendations", requireAuth, async (req, res) => {
     try {
         const recommendations = await CropRecommendation.find()
             .populate("user", "name email phone")
@@ -315,7 +311,7 @@ app.get("/api/recommendations", async (req, res) => {
     }
 });
 
-app.post("/api/recommendations", async (req, res) => {
+app.post("/api/recommendations", requireAuth, async (req, res) => {
     const {
         user,
         farm,
