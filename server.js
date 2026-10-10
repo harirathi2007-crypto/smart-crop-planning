@@ -1,8 +1,12 @@
 const express = require("express");
 const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
+const { randomUUID } = require("crypto");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const multer = require("multer");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const Crop = require("./models/Crop");
@@ -16,6 +20,12 @@ const MONGODB_URI =
     process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/smart-crop-planning";
 const JWT_SECRET = process.env.JWT_SECRET || "smart-crop-planning-development-secret";
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const UPLOAD_DIRECTORY = path.join(__dirname, "uploads");
+const imageExtensions = new Map([
+    ["image/jpeg", ".jpg"],
+    ["image/png", ".png"],
+    ["image/webp", ".webp"]
+]);
 const googleOAuthConfigured = Boolean(
     process.env.GOOGLE_CLIENT_ID &&
         process.env.GOOGLE_CLIENT_SECRET &&
@@ -25,6 +35,50 @@ const googleOAuthConfigured = Boolean(
 app.use(cors());
 app.use(express.json());
 app.use(passport.initialize());
+fs.mkdirSync(UPLOAD_DIRECTORY, { recursive: true });
+app.use("/uploads", requireAuth, express.static(UPLOAD_DIRECTORY, {
+    dotfiles: "deny",
+    index: false,
+    setHeaders(response) {
+        response.setHeader("X-Content-Type-Options", "nosniff");
+    }
+}));
+
+const uploadCropImage = multer({
+    storage: multer.diskStorage({
+        destination: UPLOAD_DIRECTORY,
+        filename(req, file, callback) {
+            callback(null, `${randomUUID()}${imageExtensions.get(file.mimetype)}`);
+        }
+    }),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter(req, file, callback) {
+        if (!imageExtensions.has(file.mimetype)) {
+            return callback(new Error("Only JPEG, PNG, or WebP images are allowed"));
+        }
+
+        callback(null, true);
+    }
+});
+
+function parseCropImage(req, res, next) {
+    uploadCropImage.single("image")(req, res, (error) => {
+        if (!error) return next();
+
+        const statusCode = error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE"
+            ? 413
+            : 400;
+        res.status(statusCode).json({ message: error.message });
+    });
+}
+
+async function removeUploadedImage(filename) {
+    if (!filename) return;
+
+    await fs.promises.unlink(path.join(UPLOAD_DIRECTORY, path.basename(filename))).catch((error) => {
+        if (error.code !== "ENOENT") throw error;
+    });
+}
 
 if (googleOAuthConfigured) {
     passport.use(
@@ -224,10 +278,11 @@ app.get("/api/crops", requireAuth, async (req, res) => {
     }
 });
 
-app.post("/api/crops", requireAuth, async (req, res) => {
+app.post("/api/crops", requireAuth, parseCropImage, async (req, res) => {
     const { name, season, soilType, description } = req.body;
 
     if (typeof name !== "string" || name.trim() === "") {
+        await removeUploadedImage(req.file?.filename);
         return res.status(400).json({ message: "Crop name is required" });
     }
 
@@ -236,47 +291,58 @@ app.post("/api/crops", requireAuth, async (req, res) => {
             name: name.trim(),
             season,
             soilType,
-            description
+            description,
+            imageUrl: req.file ? `/uploads/${req.file.filename}` : undefined
         });
 
         res.status(201).json(crop);
     } catch (error) {
+        await removeUploadedImage(req.file?.filename).catch(console.error);
         res.status(500).json({ message: "Unable to create crop" });
     }
 });
 
-app.put("/api/crops/:id", requireAuth, async (req, res) => {
+app.put("/api/crops/:id", requireAuth, parseCropImage, async (req, res) => {
     const { id } = req.params;
     const { name, season, soilType, description } = req.body;
 
     if (!mongoose.isValidObjectId(id)) {
+        await removeUploadedImage(req.file?.filename);
         return res.status(400).json({ message: "Invalid crop id" });
     }
 
     if (typeof name !== "string" || name.trim() === "") {
+        await removeUploadedImage(req.file?.filename);
         return res.status(400).json({ message: "Crop name is required" });
     }
 
+    let crop;
+    let previousImageUrl;
     try {
-        const crop = await Crop.findByIdAndUpdate(
-            id,
-            {
-                name: name.trim(),
-                season,
-                soilType,
-                description
-            },
-            { returnDocument: "after", runValidators: true }
-        );
+        crop = await Crop.findById(id);
 
         if (!crop) {
+            await removeUploadedImage(req.file?.filename);
             return res.status(404).json({ message: "Crop not found" });
         }
 
-        res.json(crop);
+        previousImageUrl = crop.imageUrl;
+        crop.name = name.trim();
+        crop.season = season;
+        crop.soilType = soilType;
+        crop.description = description;
+        if (req.file) crop.imageUrl = `/uploads/${req.file.filename}`;
+        await crop.save();
     } catch (error) {
+        await removeUploadedImage(req.file?.filename).catch(console.error);
         res.status(500).json({ message: "Unable to update crop" });
+        return;
     }
+
+    if (req.file && previousImageUrl) {
+        await removeUploadedImage(previousImageUrl).catch(console.error);
+    }
+    res.json(crop);
 });
 
 app.delete("/api/crops/:id", requireAuth, async (req, res) => {
@@ -293,6 +359,7 @@ app.delete("/api/crops/:id", requireAuth, async (req, res) => {
             return res.status(404).json({ message: "Crop not found" });
         }
 
+        await removeUploadedImage(crop.imageUrl).catch(console.error);
         res.status(204).send();
     } catch (error) {
         res.status(500).json({ message: "Unable to delete crop" });

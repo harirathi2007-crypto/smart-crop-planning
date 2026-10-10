@@ -39,9 +39,14 @@ button in the client.
 Crop database operations:
 
 - `GET /api/crops` reads all crops from MongoDB.
-- `POST /api/crops` writes a crop to MongoDB. Send JSON with a required `name`
-	and optional `season`, `soilType`, and `description` fields.
-- `PUT /api/crops/:id` updates an existing crop using the same JSON fields.
+- `POST /api/crops` creates a crop from multipart form data with a required
+  `name`, optional `season`, `soilType`, and `description`, and an optional
+  `image` file field.
+- `PUT /api/crops/:id` updates crop fields and optionally replaces the `image`
+  file using multipart form data.
 - `DELETE /api/crops/:id` removes an existing crop from MongoDB.
+- Crop images are limited to JPEG, PNG, or WebP and 5 MB. Files are stored in
+  the server's `uploads` directory and served from `/uploads` to authenticated
+  requests; use persistent disk storage when deploying the server.
 - `POST /api/recommendations` links a user and their farm to a crop recommendation.
 - `GET /api/recommendations` reads recommendations with populated user and farm data.
