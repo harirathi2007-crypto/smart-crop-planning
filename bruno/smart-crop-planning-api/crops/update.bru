@@ -1,0 +1,22 @@
+meta {
+  name: Update crop
+  type: http
+  seq: 10
+}
+
+put {
+  url: {{baseUrl}}/api/crops/{{cropId}}
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:multipart-form {
+  name: Updated corn
+  season: Rainy
+  soilType: Loamy
+  description: Updated crop details
+}

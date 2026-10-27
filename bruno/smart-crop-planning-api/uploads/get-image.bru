@@ -1,0 +1,15 @@
+meta {
+  name: Get crop image
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}{{imagePath}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

@@ -1,0 +1,22 @@
+meta {
+  name: Create crop
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/crops
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:multipart-form {
+  name: Corn
+  season: Rainy
+  soilType: Loamy
+  description: Sample crop for API testing
+}

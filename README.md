@@ -14,6 +14,18 @@ The server uses MongoDB through Mongoose. Set `MONGODB_URI` before starting
 the server, or use the local default at
 `mongodb://127.0.0.1:27017/smart-crop-planning`.
 
+## Bruno API collection
+
+The Bruno collection documenting the server's routes is in
+[`bruno/smart-crop-planning-api`](./bruno/smart-crop-planning-api). Open that
+folder in Bruno and select the `Local` environment to use
+`http://localhost:3000`. See the collection README for authentication,
+OAuth, and image-upload instructions.
+
+The collection covers the application root and health check; password and
+Google OAuth authentication; crop list, create, update, and delete; crop-image
+retrieval; and recommendation list and create.
+
 ```powershell
 $env:MONGODB_URI = "mongodb+srv://<username>:<password>@<cluster>/<database>"
 $env:JWT_SECRET = "replace-with-a-long-random-secret"
@@ -31,6 +43,9 @@ Authentication endpoints:
 - `GET /api/auth/me` returns the authenticated user when sent an
 	`Authorization: Bearer <token>` header.
 - `GET /api/auth/google` starts Google OAuth and redirects back with the app JWT.
+- `GET /api/auth/google/callback` is the OAuth callback. It should be reached
+  through Google's redirect after starting the OAuth flow.
+- `GET /api/health` returns the API health message.
 
 Create a Google OAuth web application in Google Cloud Console and add the
 callback URL above to its authorized redirect URIs before using the Google
@@ -45,8 +60,11 @@ Crop database operations:
 - `PUT /api/crops/:id` updates crop fields and optionally replaces the `image`
   file using multipart form data.
 - `DELETE /api/crops/:id` removes an existing crop from MongoDB.
+- `GET /uploads/:filename` returns an uploaded crop image to authenticated
+  requests.
 - Crop images are limited to JPEG, PNG, or WebP and 5 MB. Files are stored in
   the server's `uploads` directory and served from `/uploads` to authenticated
   requests; use persistent disk storage when deploying the server.
 - `POST /api/recommendations` links a user and their farm to a crop recommendation.
 - `GET /api/recommendations` reads recommendations with populated user and farm data.
+- `GET /` redirects to the configured client URL.
