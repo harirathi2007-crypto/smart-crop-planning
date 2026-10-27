@@ -1,0 +1,25 @@
+meta {
+  name: Create recommendation
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/recommendations
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  user: {{userId}}
+  farm: {{farmId}}
+  recommendedCrop: Corn
+  suitability: High
+  temperature: 24
+  rainfall: 80
+  humidity: 65
+}
