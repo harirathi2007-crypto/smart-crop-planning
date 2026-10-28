@@ -1,9 +1,11 @@
 const request = require("supertest");
 const jwt = require("jsonwebtoken");
+const testJwtSecret = "unit-test-secret-that-is-not-for-production";
+process.env.JWT_SECRET = testJwtSecret;
 const { app } = require("../server");
 const authHeader = `Bearer ${jwt.sign(
     { userId: "test" },
-    "smart-crop-planning-development-secret"
+    testJwtSecret
 )}`;
 
 describe("API health", () => {
