@@ -41,6 +41,35 @@ The tests cover the health endpoint, authentication requirements, and
 validation of invalid registration and login requests. They exercise the
 Express app directly and do not require a MongoDB connection.
 
+## Running with Docker
+
+The root `Dockerfile` builds the React frontend and packages it with the
+Express API in a non-root Node.js runtime image. Docker Compose starts the app
+with MongoDB and preserves uploaded images and database data in named volumes.
+
+1. Install and start Docker Desktop.
+2. Copy `.env.example` to `.env` and replace `JWT_SECRET` with a unique random
+   secret of at least 32 characters. Keep `.env` private; it is ignored by Git.
+3. From the repository root, build and start both containers:
+
+   ```powershell
+   Copy-Item .env.example .env
+   notepad .env
+   docker compose up --build
+   ```
+
+4. Open `http://localhost:3000` and verify the API at
+   `http://localhost:3000/api/health`.
+5. Stop the containers with `Ctrl+C`, then run `docker compose down` when
+   finished. Use `docker compose down -v` only when you also want to delete
+   the local database and uploaded-image volumes.
+
+The Compose setup binds the app to localhost and is intended for local
+development and demonstration. For a real deployment, provide a unique
+`JWT_SECRET`, a secured MongoDB service, and persistent upload storage; do not
+use the example secret or expose this development MongoDB without
+authentication and network restrictions.
+
 ## Deploying on Render
 
 The root [`render.yaml`](./render.yaml) defines a Node web service, builds the
