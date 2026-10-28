@@ -41,6 +41,21 @@ The tests cover the health endpoint, authentication requirements, and
 validation of invalid registration and login requests. They exercise the
 Express app directly and do not require a MongoDB connection.
 
+## AI crop-name autocomplete
+
+When adding a crop, type at least two characters in the crop-name field to
+request up to five AI-generated completions. Suggestions can use the entered
+season and soil type as context. Select a suggestion to fill the name, or keep
+typing and enter your own value.
+
+The backend sends only the crop-name prefix, season, and soil type to the
+OpenAI Chat Completions API. Configure `OPENAI_API_KEY` on the backend (for
+example, in the Render service environment or the local `.env` used by
+Docker Compose). The key is never included in the frontend bundle. The
+optional `OPENAI_MODEL` server variable selects the model; it defaults to
+`gpt-4o-mini`. Without an API key the rest of the app remains available and
+the autocomplete shows a configuration message.
+
 ## Running with Docker
 
 The root `Dockerfile` builds the React frontend and packages it with the
@@ -57,6 +72,9 @@ with MongoDB and preserves uploaded images and database data in named volumes.
    notepad .env
    docker compose up --build
    ```
+
+   Add your OpenAI key as `OPENAI_API_KEY` in `.env` if you want to enable
+   AI crop-name suggestions.
 
 4. Open `http://localhost:3000` and verify the API at
    `http://localhost:3000/api/health`.
@@ -89,7 +107,9 @@ The build command is `npm ci && npm --prefix client ci && npm --prefix client
 run build`; the start command is `npm start`. The Blueprint generates a
 `JWT_SECRET` and sets `NODE_ENV=production`. The server refuses to start in
 production if `JWT_SECRET` is missing. `CLIENT_URL` automatically uses
-Render's external service URL, but it can be set explicitly if needed.
+Render's external service URL, but it can be set explicitly if needed. Add
+`OPENAI_API_KEY` to the Render service environment to enable AI crop-name
+autocomplete; keep this key on the backend and out of `VITE_*` variables.
 
 If Google sign-in is enabled, add `GOOGLE_CLIENT_ID`,
 `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL` as Render environment

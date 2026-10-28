@@ -109,6 +109,90 @@ app.get("/api/health", (req, res) => {
     });
 });
 
+app.post("/api/ai/crop-suggestions", requireAuth, async (req, res) => {
+    const { query, season, soilType } = req.body;
+
+    if (
+        typeof query !== "string" ||
+        query.trim().length < 2 ||
+        query.trim().length > 80 ||
+        (season !== undefined && typeof season !== "string") ||
+        (soilType !== undefined && typeof soilType !== "string")
+    ) {
+        return res.status(400).json({
+            message: "A crop name query of 2 to 80 characters is required"
+        });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({
+            message: "AI crop suggestions are not configured on this server"
+        });
+    }
+
+    try {
+        const providerResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+                response_format: { type: "json_object" },
+                messages: [
+                    {
+                        role: "system",
+                        content: "Suggest up to five real crop names that autocomplete the user's partial crop name. Return only a JSON object with a suggestions array of short crop names. Do not include explanations or markdown."
+                    },
+                    {
+                        role: "user",
+                        content: JSON.stringify({
+                            partialName: query.trim(),
+                            season: typeof season === "string" ? season.trim().slice(0, 80) : "",
+                            soilType: typeof soilType === "string" ? soilType.trim().slice(0, 80) : ""
+                        })
+                    }
+                ]
+            }),
+            signal: AbortSignal.timeout(15000)
+        });
+
+        if (!providerResponse.ok) {
+            throw new Error(`OpenAI returned HTTP ${providerResponse.status}`);
+        }
+
+        const providerResult = await providerResponse.json();
+        const content = providerResult.choices?.[0]?.message?.content;
+        const parsedContent = typeof content === "string" ? JSON.parse(content) : null;
+
+        if (!Array.isArray(parsedContent?.suggestions)) {
+            throw new Error("OpenAI returned an invalid crop suggestions response");
+        }
+
+        const suggestionsByName = new Map();
+        parsedContent.suggestions
+            .filter((name) => typeof name === "string")
+            .map((name) => name.trim().slice(0, 60))
+            .filter(Boolean)
+            .forEach((name) => {
+                const normalizedName = name.charAt(0).toUpperCase() + name.slice(1);
+                const key = normalizedName.toLowerCase();
+                if (!suggestionsByName.has(key)) {
+                    suggestionsByName.set(key, normalizedName);
+                }
+            });
+        const suggestions = [...suggestionsByName.values()].slice(0, 5);
+
+        res.json({ suggestions });
+    } catch (error) {
+        console.error("Unable to generate crop suggestions", error.message);
+        res.status(502).json({
+            message: "AI crop suggestions are temporarily unavailable"
+        });
+    }
+});
+
 function publicUser(user) {
     return {
         id: user._id,

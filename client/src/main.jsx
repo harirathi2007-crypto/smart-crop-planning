@@ -6,6 +6,7 @@ const API_ORIGIN = import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? "http://localhost:3000" : window.location.origin);
 const API_URL = `${API_ORIGIN}/api/crops`;
 const AUTH_URL = `${API_ORIGIN}/api/auth`;
+const AI_URL = `${API_ORIGIN}/api/ai`;
 
 function getInitialSession() {
   const params = new URLSearchParams(window.location.search);
@@ -130,6 +131,9 @@ function App() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", season: "", soilType: "", description: "" });
   const [image, setImage] = useState(null);
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [aiSuggestionStatus, setAiSuggestionStatus] = useState("");
+  const [showAiSuggestions, setShowAiSuggestions] = useState(false);
   const [status, setStatus] = useState({ type: "", message: "" });
   const [loading, setLoading] = useState(true);
 
@@ -151,6 +155,53 @@ function App() {
     if (session) loadCrops();
   }, [session]);
 
+  useEffect(() => {
+    const query = form.name.trim();
+
+    if (!session || !creating || !showAiSuggestions || query.length < 2) {
+      setAiSuggestions([]);
+      setAiSuggestionStatus("");
+      return;
+    }
+
+    setAiSuggestions([]);
+    setAiSuggestionStatus("");
+    const controller = new AbortController();
+    const timeout = setTimeout(async () => {
+      setAiSuggestionStatus("loading");
+
+      try {
+        const response = await fetch(`${AI_URL}/crop-suggestions`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            query,
+            season: form.season,
+            soilType: form.soilType
+          }),
+          signal: controller.signal
+        });
+        const result = await response.json();
+
+        if (!response.ok) throw new Error(result.message || "Unable to get crop suggestions");
+        setAiSuggestions(result.suggestions);
+        setAiSuggestionStatus(result.suggestions.length ? "ready" : "empty");
+      } catch (error) {
+        if (error.name === "AbortError") return;
+        setAiSuggestions([]);
+        setAiSuggestionStatus(error.message);
+      }
+    }, 350);
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [session, creating, showAiSuggestions, form.name, form.season, form.soilType]);
+
   if (!session) {
     return <AuthPanel onAuthenticated={setSession} />;
   }
@@ -159,6 +210,8 @@ function App() {
     setEditingId(crop._id);
     setCreating(false);
     setImage(null);
+    setShowAiSuggestions(false);
+    setAiSuggestions([]);
     setForm({
       name: crop.name,
       season: crop.season || "",
@@ -172,6 +225,8 @@ function App() {
     setEditingId(null);
     setCreating(true);
     setImage(null);
+    setShowAiSuggestions(false);
+    setAiSuggestions([]);
     setForm({ name: "", season: "", soilType: "", description: "" });
     setStatus({ type: "", message: "" });
   }
@@ -180,6 +235,8 @@ function App() {
     setEditingId(null);
     setCreating(false);
     setImage(null);
+    setShowAiSuggestions(false);
+    setAiSuggestions([]);
     setForm({ name: "", season: "", soilType: "", description: "" });
   }
 
@@ -265,7 +322,48 @@ function App() {
             {(creating || editingId) && (
               <form className="crop-row editing crop-form" onSubmit={saveCrop}>
                 <div className="edit-fields">
-                  <input aria-label="Crop name" placeholder="Crop name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />
+                  <div className="crop-name-field">
+                    <input
+                      aria-label="Crop name"
+                      aria-autocomplete="list"
+                      aria-controls="crop-ai-suggestions"
+                      autoComplete="off"
+                      placeholder="Crop name"
+                      value={form.name}
+                      onChange={(event) => {
+                        setForm({ ...form, name: event.target.value });
+                        setShowAiSuggestions(true);
+                      }}
+                      required
+                    />
+                    {creating && showAiSuggestions && form.name.trim().length >= 2 && (
+                      <div className="ai-suggestions" id="crop-ai-suggestions">
+                        {aiSuggestionStatus === "loading" && <p role="status">Finding crop suggestions...</p>}
+                        {aiSuggestionStatus === "empty" && <p role="status">No suggestions found.</p>}
+                        {aiSuggestionStatus && !["loading", "empty", "ready"].includes(aiSuggestionStatus) && (
+                          <p className="ai-suggestion-error" role="status">{aiSuggestionStatus}</p>
+                        )}
+                        {aiSuggestions.length > 0 && (
+                          <ul aria-label="AI crop suggestions">
+                            {aiSuggestions.map((suggestion) => (
+                              <li key={suggestion}>
+                                <button
+                                  onClick={() => {
+                                    setForm({ ...form, name: suggestion });
+                                    setShowAiSuggestions(false);
+                                    setAiSuggestions([]);
+                                  }}
+                                  type="button"
+                                >
+                                  {suggestion}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <input aria-label="Season" placeholder="Season" value={form.season} onChange={(event) => setForm({ ...form, season: event.target.value })} />
                   <input aria-label="Soil type" placeholder="Soil type" value={form.soilType} onChange={(event) => setForm({ ...form, soilType: event.target.value })} />
                   <input aria-label="Description" placeholder="Description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
