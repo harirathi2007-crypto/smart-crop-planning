@@ -61,17 +61,47 @@ can be lost on redeploy or instance replacement. Use a Render plan with a
 persistent disk mounted at the upload path or move uploads to persistent
 object storage before relying on uploaded images in production.
 
+## Deploying the frontend on Netlify
+
+The root [`netlify.toml`](./netlify.toml) configures the Netlify build and
+publishes the Vite frontend from `client/dist`. To deploy:
+
+1. Deploy the backend to Render first and copy its public service URL.
+2. In Netlify, choose **Add new site > Import an existing project**, connect
+   this GitHub repository, and select the branch to deploy.
+3. Set the `VITE_API_URL` environment variable to the Render service URL
+   (for example, `https://your-service.onrender.com`, without a trailing
+   slash). This is a public API URL, not a secret. Do not put credentials or
+   tokens in `VITE_*` variables.
+4. Deploy the site. Netlify uses the build command
+   `npm ci && npm --prefix client ci && npm --prefix client run build` and the
+   publish directory `client/dist`; these are also configured in
+   `netlify.toml`.
+5. Open the Netlify site URL and verify the frontend loads and can reach the
+   Render API. If Google sign-in is enabled, set the Render `CLIENT_URL` to
+   the Netlify site URL and ensure the Google OAuth callback URL remains the
+   Render backend URL.
+
+The Netlify redirect rule serves the React entry point for frontend routes.
+If `VITE_API_URL` is changed in Netlify, trigger a new deploy so Vite can
+include the updated value in the frontend build.
+
 ## Deployment video walkthrough
 
-For the required recording, share the entire screen and keep the camera on.
-Show the Render Blueprint settings (without exposing secret values), the
-successful build/deploy logs, the live service URL, and `/api/health`. Explain
-that the build command installs the root and client dependencies and builds
-the Vite app, while `npm start` launches the Express server. Mention the
-MongoDB Atlas connection, generated JWT secret, and the ephemeral upload
-storage limitation. Demonstrate the deployed application if database access
-and a test account are configured. Aim for at least three minutes, use a
-clear microphone, and share the recording with the requested link access.
+For each deployment recording, share the entire screen and keep the camera
+on. Use Google Meet with the Kalvium community account if required, record at
+least three minutes, and use clear audio without background noise. Show the
+Netlify site configuration, successful build/deploy logs, live site URL, and
+the app loading. Explain the build command, the `client/dist` publish
+directory, and how the frontend's `VITE_API_URL` connects it to the Render
+backend. Do not reveal environment variable secrets. Name the recording
+`Your name_Squad name_File name` and share the recording so anyone with the
+link can edit, as instructed.
+
+For the backend deployment walkthrough, also show the Render Blueprint
+settings (without exposing secret values), the live service URL, and
+`/api/health`. Explain `npm start`, the MongoDB Atlas connection, generated
+JWT secret, and the ephemeral upload storage limitation.
 
 ## Bruno API collection
 
