@@ -14,6 +14,65 @@ The server uses MongoDB through Mongoose. Set `MONGODB_URI` before starting
 the server, or use the local default at
 `mongodb://127.0.0.1:27017/smart-crop-planning`.
 
+## Running the application
+
+Build the React frontend and start the backend from the repository root:
+
+```powershell
+npm install
+npm run build
+npm start
+```
+
+Open `http://localhost:3000` for the frontend. The backend serves the built
+React app and its API from the same origin. For frontend development with Vite,
+run `npm run dev -- --host 0.0.0.0` from `client`; it uses the backend at
+`http://localhost:3000` by default.
+
+## Deploying on Render
+
+The root [`render.yaml`](./render.yaml) defines a Node web service, builds the
+React client, starts the Express server, and checks `/api/health`. To deploy:
+
+1. Push this repository to GitHub and sign in to Render with the account you
+   want to use.
+2. In Render, choose **New + > Blueprint**, connect this GitHub repository,
+   and apply the Blueprint.
+3. Before creating the service, provide `MONGODB_URI` when prompted. Use a
+   MongoDB Atlas connection string and ensure the Atlas network access rules
+   allow connections from the Render service.
+4. Wait for the build and deploy to finish. Open the Render service URL and
+   check `/api/health`; it should return the API health message.
+
+The build command is `npm ci && npm --prefix client ci && npm --prefix client
+run build`; the start command is `npm start`. The Blueprint generates a
+`JWT_SECRET` and sets `NODE_ENV=production`. The server refuses to start in
+production if `JWT_SECRET` is missing. `CLIENT_URL` automatically uses
+Render's external service URL, but it can be set explicitly if needed.
+
+If Google sign-in is enabled, add `GOOGLE_CLIENT_ID`,
+`GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL` as Render environment
+variables. Set the Google OAuth authorized redirect URI to
+`https://<your-render-service>.onrender.com/api/auth/google/callback`.
+
+Uploaded crop images are saved in the service's local `uploads` directory.
+The free web service does not provide persistent disk storage, so those files
+can be lost on redeploy or instance replacement. Use a Render plan with a
+persistent disk mounted at the upload path or move uploads to persistent
+object storage before relying on uploaded images in production.
+
+## Deployment video walkthrough
+
+For the required recording, share the entire screen and keep the camera on.
+Show the Render Blueprint settings (without exposing secret values), the
+successful build/deploy logs, the live service URL, and `/api/health`. Explain
+that the build command installs the root and client dependencies and builds
+the Vite app, while `npm start` launches the Express server. Mention the
+MongoDB Atlas connection, generated JWT secret, and the ephemeral upload
+storage limitation. Demonstrate the deployed application if database access
+and a test account are configured. Aim for at least three minutes, use a
+clear microphone, and share the recording with the requested link access.
+
 ## Bruno API collection
 
 The Bruno collection documenting the server's routes is in
@@ -32,7 +91,7 @@ $env:JWT_SECRET = "replace-with-a-long-random-secret"
 $env:GOOGLE_CLIENT_ID = "your-google-client-id"
 $env:GOOGLE_CLIENT_SECRET = "your-google-client-secret"
 $env:GOOGLE_CALLBACK_URL = "http://localhost:3000/api/auth/google/callback"
-$env:CLIENT_URL = "http://localhost:5173"
+$env:CLIENT_URL = "http://localhost:3000"
 npm start
 ```
 
