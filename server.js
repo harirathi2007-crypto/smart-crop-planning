@@ -19,8 +19,10 @@ const PORT = process.env.PORT || 3000;
 const MONGODB_URI =
     process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/smart-crop-planning";
 const JWT_SECRET = process.env.JWT_SECRET || "smart-crop-planning-development-secret";
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const CLIENT_URL =
+    process.env.CLIENT_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:5173";
 const UPLOAD_DIRECTORY = path.join(__dirname, "uploads");
+const CLIENT_BUILD_DIRECTORY = path.join(__dirname, "client", "dist");
 const imageExtensions = new Map([
     ["image/jpeg", ".jpg"],
     ["image/png", ".png"],
@@ -94,6 +96,10 @@ if (googleOAuthConfigured) {
 }
 
 app.get("/", (req, res) => {
+    if (fs.existsSync(path.join(CLIENT_BUILD_DIRECTORY, "index.html"))) {
+        return res.sendFile(path.join(CLIENT_BUILD_DIRECTORY, "index.html"));
+    }
+
     res.redirect(CLIENT_URL);
 });
 
@@ -433,7 +439,13 @@ app.post("/api/recommendations", requireAuth, async (req, res) => {
     }
 });
 
+app.use(express.static(CLIENT_BUILD_DIRECTORY));
+
 async function startServer() {
+    if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET must be set in production");
+    }
+
     await mongoose.connect(MONGODB_URI);
 
     return app.listen(PORT, () => {
