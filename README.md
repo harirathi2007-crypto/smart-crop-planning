@@ -1,220 +1,283 @@
 # Smart Crop Planning System
 
-## Mock UX Design
+A web application and API for organizing crop records and supporting farm
+planning workflows. Farmers can manage crop details, relate recommendations
+to farms through the API, and use AI-assisted crop-name autocomplete while
+entering a crop.
 
-Figma Link:
-https://school-moss-22946873.figma.site/
+## Problem Statement
 
-This Mock UX demonstrates the application's primary screens,
-navigation flow, and major farmer user journeys.
+Crop planning involves keeping crop names, growing seasons, soil preferences,
+and farm information organized. Scattered records make these details harder
+to review and update. This project provides a central application for
+maintaining crop records and related planning data.
 
-## Database API
+## Proposed Solution
 
-The server uses MongoDB through Mongoose. Set `MONGODB_URI` before starting
-the server, or use the local default at
-`mongodb://127.0.0.1:27017/smart-crop-planning`.
+The application combines a React interface with an Express API and MongoDB
+data models. Authenticated users can create, review, edit, and delete crop
+records, including optional crop images. The API also supports crop
+recommendation records linked to users and farms. An optional server-side
+OpenAI integration suggests crop-name completions based on a typed prefix,
+season, and soil type.
 
-## Running the application
+AI suggestions are autocomplete assistance, not agronomic advice. Users
+should validate crop choices against local conditions and expert guidance.
 
-Build the React frontend and start the backend from the repository root:
+## Technology Stack
+
+- **Frontend:** React, Vite, JavaScript, CSS
+- **Backend:** Node.js 22+, Express 5
+- **Database:** MongoDB with Mongoose
+- **Authentication:** Password hashing with bcryptjs, JWT bearer tokens,
+  optional Google OAuth with Passport
+- **AI autocomplete:** OpenAI Chat Completions API (optional; configured on
+  the backend)
+- **Testing:** Jest and Supertest
+- **Deployment:** Render Blueprint for the API/application, Netlify for the
+  separate frontend, Docker and Docker Compose for local containers
+- **API collection:** Bruno
+
+## Architecture Overview
+
+```mermaid
+flowchart LR
+    Browser[React and Vite browser app]
+    Netlify[Netlify static frontend]
+    API[Express API]
+    Mongo[(MongoDB)]
+    OpenAI[OpenAI API]
+    Uploads[Crop image storage]
+
+    Browser --> Netlify
+    Browser -->|HTTPS JSON and multipart requests with bearer token| API
+    API -->|Mongoose| Mongo
+    API -->|Optional authenticated server request| OpenAI
+    API --> Uploads
+```
+
+In a combined local or Render deployment, Express serves the Vite build and
+the API from the same origin. In a separate Netlify deployment, the frontend
+must be built with `VITE_API_URL` set to the backend's public origin. The
+OpenAI key remains on the backend; it must never be exposed in a `VITE_*`
+variable.
+
+## Key Features
+
+- Register and sign in with email and password; passwords are hashed before
+  storage. Google OAuth is optional and requires provider configuration.
+- Create, list, update, and delete crop records.
+- Upload optional JPEG, PNG, and WebP crop images, limited to 5 MB.
+- Request up to five AI crop-name completions when creating a crop. Requests
+  are debounced in the frontend and the API requires authentication.
+- Create and list crop recommendation records associated with a user and a
+  farm through the API.
+- Health-check endpoint at `/api/health`.
+- Bruno API collection for exploring documented endpoints.
+
+## Repository Structure
+
+```text
+.
+├── bruno/smart-crop-planning-api/  # Bruno requests and local environment
+├── client/                         # React/Vite frontend
+│   └── src/
+├── models/                         # Mongoose schemas
+├── tests/                          # Jest/Supertest API tests
+├── .dockerignore
+├── .env.example                    # Safe local configuration template
+├── Dockerfile                      # Multi-stage production image
+├── docker-compose.yml              # Local app + MongoDB
+├── netlify.toml                    # Netlify build and SPA routing
+├── render.yaml                     # Render web service Blueprint
+├── server.js                       # Express app and API routes
+└── package.json
+```
+
+## Installation Instructions
+
+Requirements: Node.js 22 or later, npm, and MongoDB (local or hosted).
+
+```sh
+git clone https://github.com/harirathi2007-crypto/smart-crop-planning.git
+cd smart-crop-planning
+npm ci
+npm --prefix client ci
+```
+
+Copy the environment template and edit it for your environment. Do not commit
+the populated `.env` file:
 
 ```powershell
-npm install
+Copy-Item .env.example .env
+notepad .env
+```
+
+Replace the example `JWT_SECRET` with a unique random value before running the
+server. Startup fails if it is missing. The example value is only a
+placeholder and must not be used as a real credential.
+
+For running the Node server directly, Node 22 supports loading the file with
+`--env-file`:
+
+```sh
+node --env-file=.env server.js
+```
+
+Alternatively, export the variables in your shell and run `npm start`.
+
+## Environment Setup
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `MONGODB_URI` | Optional | MongoDB connection string. Defaults to a local development database; that database must be available. |
+| `JWT_SECRET` | Required | Secret used to sign bearer tokens. Use a unique random value; never commit it. The server refuses to start without it. |
+| `CLIENT_URL` | Optional | Frontend origin used by Google OAuth redirects. |
+| `GOOGLE_CLIENT_ID` | Optional | Google OAuth web client ID. |
+| `GOOGLE_CLIENT_SECRET` | Optional | Google OAuth client secret. Keep it private. |
+| `GOOGLE_CALLBACK_URL` | Optional | Backend OAuth callback URL. |
+| `OPENAI_API_KEY` | Optional | Backend-only key for AI crop-name autocomplete. |
+| `OPENAI_MODEL` | Optional | OpenAI model name; defaults to `gpt-4o-mini`. |
+| `VITE_API_URL` | For separate frontend hosting | Public backend origin included at frontend build time; omit trailing slash. This is public configuration, not a secret. |
+| `PORT` | Usually platform-provided | HTTP port; defaults to `3000`. |
+
+Google sign-in requires all three Google variables and a matching authorized
+redirect URI in Google Cloud Console. If any are missing, email/password
+authentication remains available and the Google endpoint reports that OAuth
+is not configured.
+
+## Running the Project
+
+Build the frontend and start the application from the repository root:
+
+```sh
 npm run build
 npm start
 ```
 
-Open `http://localhost:3000` for the frontend. The backend serves the built
-React app and its API from the same origin. For frontend development with Vite,
-run `npm run dev -- --host 0.0.0.0` from `client`; it uses the backend at
-`http://localhost:3000` by default.
+Open `http://localhost:3000`. To run the Vite development server separately,
+start the backend first, then run:
 
-## Running tests
+```sh
+npm --prefix client run dev -- --host 0.0.0.0
+```
 
-Run the backend API tests with Jest and Supertest from the repository root:
+The Vite development frontend uses `http://localhost:3000` for its API by
+default.
 
-```powershell
+### Tests
+
+Run the backend API tests without connecting to MongoDB or calling OpenAI:
+
+```sh
 npm test
 ```
 
-The tests cover the health endpoint, authentication requirements, and
-validation of invalid registration and login requests. They exercise the
-Express app directly and do not require a MongoDB connection.
+The suite covers health, authentication/validation, protected routes, and
+mocked AI provider behavior.
 
-## AI crop-name autocomplete
+### Docker
 
-When adding a crop, type at least two characters in the crop-name field to
-request up to five AI-generated completions. Suggestions can use the entered
-season and soil type as context. Select a suggestion to fill the name, or keep
-typing and enter your own value.
+With Docker Desktop running, copy `.env.example` to `.env`, replace
+`JWT_SECRET` with a unique random secret, and optionally set `OPENAI_API_KEY`.
+Then start the application and MongoDB:
 
-The backend sends only the crop-name prefix, season, and soil type to the
-OpenAI Chat Completions API. Configure `OPENAI_API_KEY` on the backend (for
-example, in the Render service environment or the local `.env` used by
-Docker Compose). The key is never included in the frontend bundle. The
-optional `OPENAI_MODEL` server variable selects the model; it defaults to
-`gpt-4o-mini`. Without an API key the rest of the app remains available and
-the autocomplete shows a configuration message.
-
-## Running with Docker
-
-The root `Dockerfile` builds the React frontend and packages it with the
-Express API in a non-root Node.js runtime image. Docker Compose starts the app
-with MongoDB and preserves uploaded images and database data in named volumes.
-
-1. Install and start Docker Desktop.
-2. Copy `.env.example` to `.env` and replace `JWT_SECRET` with a unique random
-   secret of at least 32 characters. Keep `.env` private; it is ignored by Git.
-3. From the repository root, build and start both containers:
-
-   ```powershell
-   Copy-Item .env.example .env
-   notepad .env
-   docker compose up --build
-   ```
-
-   Add your OpenAI key as `OPENAI_API_KEY` in `.env` if you want to enable
-   AI crop-name suggestions.
-
-4. Open `http://localhost:3000` and verify the API at
-   `http://localhost:3000/api/health`.
-5. Stop the containers with `Ctrl+C`, then run `docker compose down` when
-   finished. Use `docker compose down -v` only when you also want to delete
-   the local database and uploaded-image volumes.
-
-The Compose setup binds the app to localhost and is intended for local
-development and demonstration. For a real deployment, provide a unique
-`JWT_SECRET`, a secured MongoDB service, and persistent upload storage; do not
-use the example secret or expose this development MongoDB without
-authentication and network restrictions.
-
-## Deploying on Render
-
-The root [`render.yaml`](./render.yaml) defines a Node web service, builds the
-React client, starts the Express server, and checks `/api/health`. To deploy:
-
-1. Push this repository to GitHub and sign in to Render with the account you
-   want to use.
-2. In Render, choose **New + > Blueprint**, connect this GitHub repository,
-   and apply the Blueprint.
-3. Before creating the service, provide `MONGODB_URI` when prompted. Use a
-   MongoDB Atlas connection string and ensure the Atlas network access rules
-   allow connections from the Render service.
-4. Wait for the build and deploy to finish. Open the Render service URL and
-   check `/api/health`; it should return the API health message.
-
-The build command is `npm ci && npm --prefix client ci && npm --prefix client
-run build`; the start command is `npm start`. The Blueprint generates a
-`JWT_SECRET` and sets `NODE_ENV=production`. The server refuses to start in
-production if `JWT_SECRET` is missing. `CLIENT_URL` automatically uses
-Render's external service URL, but it can be set explicitly if needed. Add
-`OPENAI_API_KEY` to the Render service environment to enable AI crop-name
-autocomplete; keep this key on the backend and out of `VITE_*` variables.
-
-If Google sign-in is enabled, add `GOOGLE_CLIENT_ID`,
-`GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL` as Render environment
-variables. Set the Google OAuth authorized redirect URI to
-`https://<your-render-service>.onrender.com/api/auth/google/callback`.
-
-Uploaded crop images are saved in the service's local `uploads` directory.
-The free web service does not provide persistent disk storage, so those files
-can be lost on redeploy or instance replacement. Use a Render plan with a
-persistent disk mounted at the upload path or move uploads to persistent
-object storage before relying on uploaded images in production.
-
-## Deploying the frontend on Netlify
-
-The root [`netlify.toml`](./netlify.toml) configures the Netlify build and
-publishes the Vite frontend from `client/dist`. To deploy:
-
-1. Deploy the backend to Render first and copy its public service URL.
-2. In Netlify, choose **Add new site > Import an existing project**, connect
-   this GitHub repository, and select the branch to deploy.
-3. Set the `VITE_API_URL` environment variable to the Render service URL
-   (for example, `https://your-service.onrender.com`, without a trailing
-   slash). This is a public API URL, not a secret. Do not put credentials or
-   tokens in `VITE_*` variables.
-4. Deploy the site. Netlify uses the build command
-   `npm ci && npm --prefix client ci && npm --prefix client run build` and the
-   publish directory `client/dist`; these are also configured in
-   `netlify.toml`.
-5. Open the Netlify site URL and verify the frontend loads and can reach the
-   Render API. If Google sign-in is enabled, set the Render `CLIENT_URL` to
-   the Netlify site URL and ensure the Google OAuth callback URL remains the
-   Render backend URL.
-
-The Netlify redirect rule serves the React entry point for frontend routes.
-If `VITE_API_URL` is changed in Netlify, trigger a new deploy so Vite can
-include the updated value in the frontend build.
-
-## Deployment video walkthrough
-
-For each deployment recording, share the entire screen and keep the camera
-on. Use Google Meet with the Kalvium community account if required, record at
-least three minutes, and use clear audio without background noise. Show the
-Netlify site configuration, successful build/deploy logs, live site URL, and
-the app loading. Explain the build command, the `client/dist` publish
-directory, and how the frontend's `VITE_API_URL` connects it to the Render
-backend. Do not reveal environment variable secrets. Name the recording
-`Your name_Squad name_File name` and share the recording so anyone with the
-link can edit, as instructed.
-
-For the backend deployment walkthrough, also show the Render Blueprint
-settings (without exposing secret values), the live service URL, and
-`/api/health`. Explain `npm start`, the MongoDB Atlas connection, generated
-JWT secret, and the ephemeral upload storage limitation.
-
-## Bruno API collection
-
-The Bruno collection documenting the server's routes is in
-[`bruno/smart-crop-planning-api`](./bruno/smart-crop-planning-api). Open that
-folder in Bruno and select the `Local` environment to use
-`http://localhost:3000`. See the collection README for authentication,
-OAuth, and image-upload instructions.
-
-The collection covers the application root and health check; password and
-Google OAuth authentication; crop list, create, update, and delete; crop-image
-retrieval; and recommendation list and create.
-
-```powershell
-$env:MONGODB_URI = "mongodb+srv://<username>:<password>@<cluster>/<database>"
-$env:JWT_SECRET = "replace-with-a-long-random-secret"
-$env:GOOGLE_CLIENT_ID = "your-google-client-id"
-$env:GOOGLE_CLIENT_SECRET = "your-google-client-secret"
-$env:GOOGLE_CALLBACK_URL = "http://localhost:3000/api/auth/google/callback"
-$env:CLIENT_URL = "http://localhost:3000"
-npm start
+```sh
+docker compose up --build
 ```
 
-Authentication endpoints:
+Open `http://localhost:3000`; verify `http://localhost:3000/api/health`.
+Compose persists MongoDB data and uploaded images in named volumes. Stop with
+`Ctrl+C`, then run `docker compose down`. `docker compose down -v` also deletes
+the local volumes and their data. The Compose app port is bound to localhost
+for local demonstration.
 
-- `POST /api/auth/register` creates a user with a hashed password.
-- `POST /api/auth/login` returns a one-day bearer token.
-- `GET /api/auth/me` returns the authenticated user when sent an
-	`Authorization: Bearer <token>` header.
-- `GET /api/auth/google` starts Google OAuth and redirects back with the app JWT.
-- `GET /api/auth/google/callback` is the OAuth callback. It should be reached
-  through Google's redirect after starting the OAuth flow.
-- `GET /api/health` returns the API health message.
+## Deployment Links and Status
 
-Create a Google OAuth web application in Google Cloud Console and add the
-callback URL above to its authorized redirect URIs before using the Google
-button in the client.
+The repository includes a Render Blueprint in `render.yaml` and a Netlify
+build configuration in `netlify.toml`. **Public production access is not
+currently verified:**
 
-Crop database operations:
+- **Netlify frontend:** [smart-crop-planning.netlify.app](https://smart-crop-planning.netlify.app/)
+  returned HTTP 401 during an unauthenticated check. The
+  Netlify project dashboard also showed no project environment variables.
+  Treat this as access-restricted until site access settings are reviewed,
+  public access is confirmed, and `VITE_API_URL` is configured to a live
+  backend URL followed by a new deploy.
+- **Render backend:** A live public service URL has not been confirmed, so no
+  backend or health-check URL is published here. Once deployed, verify
+  `https://<service>.onrender.com/api/health` and replace this note with the
+  actual public URLs.
 
-- `GET /api/crops` reads all crops from MongoDB.
-- `POST /api/crops` creates a crop from multipart form data with a required
-  `name`, optional `season`, `soilType`, and `description`, and an optional
-  `image` file field.
-- `PUT /api/crops/:id` updates crop fields and optionally replaces the `image`
-  file using multipart form data.
-- `DELETE /api/crops/:id` removes an existing crop from MongoDB.
-- `GET /uploads/:filename` returns an uploaded crop image to authenticated
-  requests.
-- Crop images are limited to JPEG, PNG, or WebP and 5 MB. Files are stored in
-  the server's `uploads` directory and served from `/uploads` to authenticated
-  requests; use persistent disk storage when deploying the server.
-- `POST /api/recommendations` links a user and their farm to a crop recommendation.
-- `GET /api/recommendations` reads recommendations with populated user and farm data.
-- `GET /` redirects to the configured client URL.
+The deployments must be verified before these links can be presented as
+working submission links. A successful Netlify deploy preview alone does not
+prove that the production site is publicly accessible or connected to the
+backend.
+
+### Render setup
+
+Connect this repository to Render as a Blueprint and provide `MONGODB_URI`
+when prompted. The Blueprint builds with
+`npm ci && npm --prefix client ci && npm --prefix client run build`, starts
+with `npm start`, and checks `/api/health`. It generates `JWT_SECRET`. Add
+`OPENAI_API_KEY` on the backend if AI autocomplete should be enabled. For
+Google OAuth, configure the three Google variables and authorize the callback
+URL on the deployed backend.
+
+The default Blueprint uses a free web service. Local disk is not durable
+storage on a free instance: use persistent disk or object storage for crop
+images. Use a secured MongoDB service and review network access restrictions.
+
+### Netlify setup
+
+Import the Git repository into Netlify. The root `netlify.toml` configures
+the build command and `client/dist` publish directory. Set `VITE_API_URL` to
+the public Render service origin before building. For Google OAuth, set
+Render's `CLIENT_URL` to the Netlify origin. Review Netlify access-control
+settings if the site should be publicly reachable.
+
+## Technical Decisions and Known Limitations
+
+- Serving the built client from Express supports a simple single-service
+  deployment; a separate Netlify frontend can be configured through
+  `VITE_API_URL`.
+- JWT bearer authentication protects crop, recommendation, current-user, and
+  image endpoints. The frontend stores the session in browser local storage.
+- The OpenAI integration is optional and server-side so provider credentials
+  are not bundled into frontend assets. Suggestions are not guaranteed
+  agronomic recommendations.
+- Uploaded images are stored on local disk. Durable storage requires a
+  persistent disk or object-storage integration.
+- Recommendation APIs and data schemas exist, but the current frontend
+  focuses on crop records rather than farm/recommendation management screens.
+- Google OAuth requires external Google Cloud credentials and redirect-URI
+  setup.
+- Public frontend access currently returns HTTP 401; the backend URL,
+  database connection, login flow, and end-to-end workflows have not been
+  verified against a publicly accessible production deployment.
+- Weather and market data models exist, but external integrations and
+  corresponding application workflows remain future work.
+
+## Future Improvements
+
+- Complete public access configuration and verify the full deployed
+  frontend-to-API-to-database workflow.
+- Add farm management and interactive recommendation screens.
+- Add persistent object storage for crop images.
+- Integrate validated weather, soil, and market-price data into explainable
+  recommendations.
+- Add rate limiting, stricter production CORS rules, and broader integration
+  tests.
+
+## Deployment Walkthrough Video
+
+**Video link: pending recording and upload.** After recording a 5–8 minute
+walkthrough, replace this line with a Google Drive link that is accessible to
+reviewers. Show the live app only after public access and backend connectivity
+have been verified. Explain the repository layout, stack, architecture,
+technical trade-offs, current deployment limitations, and lessons learned.
+
+## Contributors
+
+- Hariharan S — project owner and maintainer. See the Git history and pull
+  requests for the implementation record.

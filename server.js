@@ -18,7 +18,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI =
     process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/smart-crop-planning";
-const JWT_SECRET = process.env.JWT_SECRET || "smart-crop-planning-development-secret";
+const JWT_SECRET = process.env.JWT_SECRET;
 const CLIENT_URL =
     process.env.CLIENT_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:5173";
 const UPLOAD_DIRECTORY = path.join(__dirname, "uploads");
@@ -526,8 +526,8 @@ app.post("/api/recommendations", requireAuth, async (req, res) => {
 app.use(express.static(CLIENT_BUILD_DIRECTORY));
 
 async function startServer() {
-    if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
-        throw new Error("JWT_SECRET must be set in production");
+    if (!JWT_SECRET) {
+        throw new Error("JWT_SECRET must be set before starting the server");
     }
 
     await mongoose.connect(MONGODB_URI);
