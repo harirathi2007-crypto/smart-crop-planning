@@ -29,6 +29,18 @@ React app and its API from the same origin. For frontend development with Vite,
 run `npm run dev -- --host 0.0.0.0` from `client`; it uses the backend at
 `http://localhost:3000` by default.
 
+## Running tests
+
+Run the backend API tests with Jest and Supertest from the repository root:
+
+```powershell
+npm test
+```
+
+The tests cover the health endpoint, authentication requirements, and
+validation of invalid registration and login requests. They exercise the
+Express app directly and do not require a MongoDB connection.
+
 ## Deploying on Render
 
 The root [`render.yaml`](./render.yaml) defines a Node web service, builds the
