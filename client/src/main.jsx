@@ -2,9 +2,10 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
-const API_URL = "http://localhost:3000/api/crops";
-const API_ORIGIN = new URL(API_URL).origin;
-const AUTH_URL = "http://localhost:3000/api/auth";
+const API_ORIGIN = import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:3000" : window.location.origin);
+const API_URL = `${API_ORIGIN}/api/crops`;
+const AUTH_URL = `${API_ORIGIN}/api/auth`;
 
 function getInitialSession() {
   const params = new URLSearchParams(window.location.search);
