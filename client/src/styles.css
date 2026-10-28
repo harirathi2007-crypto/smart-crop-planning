@@ -38,6 +38,14 @@ h2 { font-size: 32px; letter-spacing: -.04em; margin: 0; }
 .editing { align-items: start; grid-template-columns: 1fr 140px; padding: 22px 0; }
 .edit-fields { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
 .edit-fields input { background: #f8faf5; border: 1px solid #bbc5ba; color: #172019; min-width: 0; padding: 11px 12px; }
+.crop-name-field { position: relative; }
+.crop-name-field > input { width: 100%; }
+.ai-suggestions { background: #f8faf5; border: 1px solid #bbc5ba; box-shadow: 0 8px 18px #1720191c; left: 0; position: absolute; right: 0; top: calc(100% + 3px); z-index: 2; }
+.ai-suggestions p { color: #566259; font-size: 12px; margin: 0; padding: 10px 12px; }
+.ai-suggestions .ai-suggestion-error { color: #8a341e; }
+.ai-suggestions ul { list-style: none; margin: 0; padding: 4px 0; }
+.ai-suggestions li button { background: transparent; border: 0; color: #172019; cursor: pointer; padding: 9px 12px; text-align: left; width: 100%; }
+.ai-suggestions li button:hover, .ai-suggestions li button:focus-visible { background: #e1eee1; }
 .upload-field { color: #566259; display: grid; font-size: 12px; gap: 8px; grid-column: 1 / -1; }
 .upload-field input { background: #f8faf5; border: 1px solid #bbc5ba; color: #172019; min-width: 0; padding: 10px; }
 .empty { border: 1px dashed #aeb9ad; color: #718075; padding: 32px; text-align: center; }
