@@ -13,13 +13,25 @@ const farmSchema = new mongoose.Schema(
       required: true
     },
 
+    state: {
+      type: String,
+      required: true
+    },
+
+    district: {
+      type: String,
+      required: true
+    },
+
     soilType: {
       type: String,
       required: true
     },
 
     soilPh: {
-      type: Number
+      type: Number,
+      min: 0,
+      max: 14
     },
 
     nitrogen: {
@@ -36,7 +48,14 @@ const farmSchema = new mongoose.Schema(
 
     area: {
       type: Number,
-      required: true
+      required: true,
+      min: 0.01
+    },
+
+    areaUnit: {
+      type: String,
+      enum: ["acres", "hectares"],
+      default: "acres"
     }
   },
   {

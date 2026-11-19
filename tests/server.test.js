@@ -178,3 +178,61 @@ describe("protected data endpoints", () => {
         expect(response.body.message).toBe("Authentication required");
     });
 });
+
+describe("farm planning and provider endpoints", () => {
+    test("requires authentication for farm and weather data", async () => {
+        const [farms, weather] = await Promise.all([
+            request(app).get("/api/farms"),
+            request(app).get("/api/weather?state=Tamil%20Nadu&district=Chennai")
+        ]);
+
+        expect(farms.status).toBe(401);
+        expect(weather.status).toBe(401);
+    });
+
+    test("validates the district before requesting weather", async () => {
+        const response = await request(app)
+            .get("/api/weather?state=Tamil%20Nadu")
+            .set("Authorization", authHeader);
+
+        expect(response.status).toBe(400);
+        expect(response.body.message).toBe("A valid state and district are required");
+    });
+
+    test("rejects incomplete or invalid farm details", async () => {
+        const response = await request(app)
+            .post("/api/farms")
+            .set("Authorization", authHeader)
+            .send({
+                state: "Tamil Nadu",
+                district: "Chennai",
+                soilType: "Loam",
+                area: 0
+            });
+
+        expect(response.status).toBe(400);
+        expect(response.body.message).toBe("Provide valid farm location, soil type, and area");
+    });
+
+    test("reports an unconfigured market data key explicitly", async () => {
+        const originalApiKey = process.env.DATA_GOV_IN_API_KEY;
+        delete process.env.DATA_GOV_IN_API_KEY;
+
+        try {
+            const response = await request(app)
+                .get("/api/market-prices?state=Tamil%20Nadu")
+                .set("Authorization", authHeader);
+
+            expect(response.status).toBe(503);
+            expect(response.body.message).toBe(
+                "Live mandi prices are not configured. Set DATA_GOV_IN_API_KEY on the backend."
+            );
+        } finally {
+            if (originalApiKey === undefined) {
+                delete process.env.DATA_GOV_IN_API_KEY;
+            } else {
+                process.env.DATA_GOV_IN_API_KEY = originalApiKey;
+            }
+        }
+    });
+});

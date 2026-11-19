@@ -1,3 +1,5 @@
+require("dotenv").config({ quiet: true });
+
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -18,11 +20,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI =
     process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/smart-crop-planning";
-const JWT_SECRET = process.env.JWT_SECRET;
-const CLIENT_URL =
-    process.env.CLIENT_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:5173";
+const JWT_SECRET = process.env.JWT_SECRET || "smart-crop-planning-development-secret";
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const MARKET_RESOURCE_ID = "9ef84268-d588-465a-a308-a864a43d0070";
+const providerCache = new Map();
 const UPLOAD_DIRECTORY = path.join(__dirname, "uploads");
-const CLIENT_BUILD_DIRECTORY = path.join(__dirname, "client", "dist");
 const imageExtensions = new Map([
     ["image/jpeg", ".jpg"],
     ["image/png", ".png"],
@@ -96,10 +98,6 @@ if (googleOAuthConfigured) {
 }
 
 app.get("/", (req, res) => {
-    if (fs.existsSync(path.join(CLIENT_BUILD_DIRECTORY, "index.html"))) {
-        return res.sendFile(path.join(CLIENT_BUILD_DIRECTORY, "index.html"));
-    }
-
     res.redirect(CLIENT_URL);
 });
 
@@ -184,12 +182,129 @@ app.post("/api/ai/crop-suggestions", requireAuth, async (req, res) => {
             });
         const suggestions = [...suggestionsByName.values()].slice(0, 5);
 
-        res.json({ suggestions });
+        return res.json({ suggestions });
     } catch (error) {
         console.error("Unable to generate crop suggestions", error.message);
-        res.status(502).json({
+        return res.status(502).json({
             message: "AI crop suggestions are temporarily unavailable"
         });
+    }
+});
+
+function cacheGet(key) {
+    const entry = providerCache.get(key);
+    if (!entry || entry.expiresAt <= Date.now()) {
+        providerCache.delete(key);
+        return null;
+    }
+
+    return entry.value;
+}
+
+function cacheSet(key, value) {
+    providerCache.set(key, { value, expiresAt: Date.now() + 5 * 60 * 1000 });
+}
+
+async function fetchProviderJson(url) {
+    const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+    if (!response.ok) {
+        throw new Error(`Provider returned HTTP ${response.status}`);
+    }
+    return response.json();
+}
+
+app.get("/api/weather", requireAuth, async (req, res) => {
+    const state = typeof req.query.state === "string" ? req.query.state.trim() : "";
+    const district = typeof req.query.district === "string" ? req.query.district.trim() : "";
+    if (!state || !district || state.length > 100 || district.length > 100) {
+        return res.status(400).json({ message: "A valid state and district are required" });
+    }
+
+    const cacheKey = `weather:${state.toLowerCase()}:${district.toLowerCase()}`;
+    const cached = cacheGet(cacheKey);
+    if (cached) return res.json(cached);
+
+    try {
+        const geocodingUrl = new URL("https://geocoding-api.open-meteo.com/v1/search");
+        geocodingUrl.search = new URLSearchParams({
+            name: district,
+            count: "20",
+            language: "en",
+            format: "json"
+        }).toString();
+        const geocoding = await fetchProviderJson(geocodingUrl);
+        const candidates = geocoding.results?.filter((result) => result.country_code === "IN") || [];
+        const place = candidates.find((result) =>
+            result.admin1?.toLowerCase() === state.toLowerCase()
+        ) || (candidates.length === 1 ? candidates[0] : null);
+
+        if (!place) {
+            return res.status(404).json({ message: "Weather location was not found for this district" });
+        }
+
+        const forecastUrl = new URL("https://api.open-meteo.com/v1/forecast");
+        forecastUrl.search = new URLSearchParams({
+            latitude: String(place.latitude),
+            longitude: String(place.longitude),
+            current: "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m",
+            daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum",
+            forecast_days: "5",
+            timezone: "auto"
+        }).toString();
+        const weather = await fetchProviderJson(forecastUrl);
+        const result = {
+            location: { name: place.name, state: place.admin1 || state, district },
+            ...weather,
+            attribution: "Weather forecast by Open-Meteo"
+        };
+        cacheSet(cacheKey, result);
+        return res.json(result);
+    } catch (error) {
+        console.error("Weather provider request failed", error.message);
+        return res.status(502).json({ message: "Weather data is temporarily unavailable" });
+    }
+});
+
+app.get("/api/market-prices", requireAuth, async (req, res) => {
+    const state = typeof req.query.state === "string" ? req.query.state.trim() : "";
+    const district = typeof req.query.district === "string" ? req.query.district.trim() : "";
+    const commodity = typeof req.query.commodity === "string" ? req.query.commodity.trim() : "";
+    if (state.length > 100 || district.length > 100 || commodity.length > 80) {
+        return res.status(400).json({ message: "Market filters are too long" });
+    }
+    if (!process.env.DATA_GOV_IN_API_KEY) {
+        return res.status(503).json({
+            message: "Live mandi prices are not configured. Set DATA_GOV_IN_API_KEY on the backend."
+        });
+    }
+
+    const cacheKey = `market:${state.toLowerCase()}:${district.toLowerCase()}:${commodity.toLowerCase()}`;
+    const cached = cacheGet(cacheKey);
+    if (cached) return res.json(cached);
+
+    try {
+        const marketUrl = new URL(`https://api.data.gov.in/resource/${MARKET_RESOURCE_ID}`);
+        const params = new URLSearchParams({
+            "api-key": process.env.DATA_GOV_IN_API_KEY,
+            format: "json",
+            limit: "100"
+        });
+        if (state) params.set("filters[state]", state);
+        if (district) params.set("filters[district]", district);
+        if (commodity) params.set("filters[commodity]", commodity);
+        marketUrl.search = params.toString();
+        const data = await fetchProviderJson(marketUrl);
+        const result = {
+            records: Array.isArray(data.records) ? data.records : [],
+            total: Number(data.total ?? data.count ?? data.records?.length ?? 0),
+            source: "Agmarknet via data.gov.in",
+            note: "Latest reported daily mandi prices; these are not intraday trading quotes."
+        };
+        cacheSet(cacheKey, result);
+        return res.json(result);
+    } catch (error) {
+        console.error("Market data provider request failed", error.message);
+        return res.status(502).json({ message: "Live mandi prices are temporarily unavailable" });
     }
 });
 
@@ -296,6 +411,62 @@ app.get("/api/auth/me", requireAuth, async (req, res) => {
         res.json({ user: publicUser(user) });
     } catch (error) {
         res.status(500).json({ message: "Unable to load user" });
+    }
+});
+
+app.get("/api/farms", requireAuth, async (req, res) => {
+    try {
+        const farms = await Farm.find({ user: req.auth.userId }).sort({ createdAt: -1 });
+        return res.json(farms);
+    } catch (error) {
+        return res.status(500).json({ message: "Unable to load saved farms" });
+    }
+});
+
+app.post("/api/farms", requireAuth, async (req, res) => {
+    const {
+        state,
+        district,
+        soilType,
+        area,
+        areaUnit = "acres",
+        soilPh,
+        nitrogen,
+        phosphorus,
+        potassium
+    } = req.body;
+    const optionalNumbers = { soilPh, nitrogen, phosphorus, potassium };
+    if (
+        typeof state !== "string" || !state.trim() || state.trim().length > 100 ||
+        typeof district !== "string" || !district.trim() || district.trim().length > 100 ||
+        typeof soilType !== "string" || !soilType.trim() || soilType.trim().length > 80 ||
+        typeof area !== "number" || !Number.isFinite(area) || area <= 0 ||
+        !["acres", "hectares"].includes(areaUnit) ||
+        (soilPh !== undefined && (!Number.isFinite(soilPh) || soilPh < 0 || soilPh > 14)) ||
+        Object.entries(optionalNumbers).some(([key, value]) =>
+            key !== "soilPh" && value !== undefined && (!Number.isFinite(value) || value < 0)
+        )
+    ) {
+        return res.status(400).json({ message: "Provide valid farm location, soil type, and area" });
+    }
+
+    try {
+        const farm = await Farm.create({
+            user: req.auth.userId,
+            state: state.trim(),
+            district: district.trim(),
+            location: `${district.trim()}, ${state.trim()}`,
+            soilType: soilType.trim(),
+            area,
+            areaUnit,
+            soilPh,
+            nitrogen,
+            phosphorus,
+            potassium
+        });
+        return res.status(201).json(farm);
+    } catch (error) {
+        return res.status(500).json({ message: "Unable to save farm details" });
     }
 });
 
@@ -458,9 +629,8 @@ app.delete("/api/crops/:id", requireAuth, async (req, res) => {
 
 app.get("/api/recommendations", requireAuth, async (req, res) => {
     try {
-        const recommendations = await CropRecommendation.find()
-            .populate("user", "name email phone")
-            .populate("farm", "location soilType area");
+        const recommendations = await CropRecommendation.find({ user: req.auth.userId })
+            .populate("farm", "location state district soilType area");
 
         res.json(recommendations);
     } catch (error) {
@@ -470,7 +640,6 @@ app.get("/api/recommendations", requireAuth, async (req, res) => {
 
 app.post("/api/recommendations", requireAuth, async (req, res) => {
     const {
-        user,
         farm,
         recommendedCrop,
         suitability,
@@ -480,30 +649,26 @@ app.post("/api/recommendations", requireAuth, async (req, res) => {
     } = req.body;
 
     if (
-        !mongoose.isValidObjectId(user) ||
         !mongoose.isValidObjectId(farm) ||
         typeof recommendedCrop !== "string" ||
-        recommendedCrop.trim() === ""
+        recommendedCrop.trim() === "" ||
+        (suitability !== undefined && (!Number.isFinite(Number(suitability)) ||
+            Number(suitability) < 0 || Number(suitability) > 100))
     ) {
         return res.status(400).json({
-            message: "User, farm, and recommended crop are required"
+            message: "Farm and recommended crop are required, with a valid suitability score"
         });
     }
 
     try {
-        const [existingUser, ownedFarm] = await Promise.all([
-            User.findById(user),
-            Farm.findOne({ _id: farm, user })
-        ]);
+        const ownedFarm = await Farm.findOne({ _id: farm, user: req.auth.userId });
 
-        if (!existingUser || !ownedFarm) {
-            return res.status(404).json({
-                message: "User or farm relationship not found"
-            });
+        if (!ownedFarm) {
+            return res.status(404).json({ message: "Farm not found" });
         }
 
         const recommendation = await CropRecommendation.create({
-            user,
+            user: req.auth.userId,
             farm,
             recommendedCrop: recommendedCrop.trim(),
             suitability,
@@ -513,8 +678,7 @@ app.post("/api/recommendations", requireAuth, async (req, res) => {
         });
 
         await recommendation.populate([
-            { path: "user", select: "name email phone" },
-            { path: "farm", select: "location soilType area" }
+            { path: "farm", select: "location state district soilType area" }
         ]);
 
         res.status(201).json(recommendation);
@@ -523,13 +687,7 @@ app.post("/api/recommendations", requireAuth, async (req, res) => {
     }
 });
 
-app.use(express.static(CLIENT_BUILD_DIRECTORY));
-
 async function startServer() {
-    if (!JWT_SECRET) {
-        throw new Error("JWT_SECRET must be set before starting the server");
-    }
-
     await mongoose.connect(MONGODB_URI);
 
     return app.listen(PORT, () => {

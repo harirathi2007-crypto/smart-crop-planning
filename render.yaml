@@ -13,3 +13,5 @@ services:
         generateValue: true
       - key: MONGODB_URI
         sync: false
+      - key: DATA_GOV_IN_API_KEY
+        sync: false

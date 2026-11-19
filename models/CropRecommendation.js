@@ -20,7 +20,9 @@ const cropRecommendationSchema = new mongoose.Schema(
     },
 
     suitability: {
-      type: String
+      type: Number,
+      min: 0,
+      max: 100
     },
 
     temperature: {
